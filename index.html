@@ -1,40 +1,292 @@
 <!doctype html>
 <html lang="en">
-	<head>
-		<meta charset="utf-8">
-		<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 
-		<title>reveal.js</title>
+    <title>reveal.js</title>
 
-		<link rel="stylesheet" href="dist/reset.css">
-		<link rel="stylesheet" href="dist/reveal.css">
-		<link rel="stylesheet" href="dist/theme/black.css">
+    <link rel="stylesheet" href="dist/reset.css">
+    <link rel="stylesheet" href="dist/reveal.css">
+    <link rel="stylesheet" href="dist/theme/black.css">
 
-		<!-- Theme used for syntax highlighted code -->
-		<link rel="stylesheet" href="plugin/highlight/monokai.css">
-	</head>
-	<body>
-		<div class="reveal">
-			<div class="slides">
-				<section>Slide 1</section>
-				<section>Slide 2</section>
-			</div>
-		</div>
+    <!-- Theme used for syntax highlighted code -->
+    <link rel="stylesheet" href="plugin/highlight/monokai.css">
+</head>
+<body>
+<div class="reveal">
+    <div class="slides">
+        <section data-markdown>
+            ## Gameboy emulator
+            How I got it working
+        </section>
+        <section data-markdown>
+            ## For fun
+            Small goals, small steps
+        </section>
+        <section data-markdown>
+            ## Our goal today
+            * Run bios
+        </section>
+        <section data-markdown>
+            * 256 bytes of CPU instructions
+            * Animated the Nintendo logo
+            * Performs a cartridge check
+            * Makes a plingeling sound
 
-		<script src="dist/reveal.js"></script>
-		<script src="plugin/notes/notes.js"></script>
-		<script src="plugin/markdown/markdown.js"></script>
-		<script src="plugin/highlight/highlight.js"></script>
-		<script>
-			// More info about initialization & config:
-			// - https://revealjs.com/initialization/
-			// - https://revealjs.com/config/
-			Reveal.initialize({
-				hash: true,
+            [https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM](https://gbdev.gg8.se/wiki/articles/Gameboy_Bootstrap_ROM)
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/bios_screenshot.png)
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/bios_hex.png)
+        </section>
+        <section data-markdown>
+            ## First step
+            How do I run anything at all?
+        </section>
+        <section data-markdown>
+            ## Setup environment
+            * Vite
+            * Typescript
 
-				// Learn about plugins: https://revealjs.com/plugins/
-				plugins: [ RevealMarkdown, RevealHighlight, RevealNotes ]
-			});
-		</script>
-	</body>
+            Next up: CPU
+        </section>
+        <section data-markdown>
+            * CPU: Sharp SM83
+            * Hybrid between Intel 8080 + Z80
+
+            ![alt text](/public/images/gb_docs_ops_example.png)
+
+            Ok, lets take a look at the BIOS code.
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/bios_hex.png)
+
+            What is this? What is 0x31?
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/op_code_map.png)
+
+            [https://gbdev.io/gb-opcodes/optables/](https://gbdev.io/gb-opcodes/optables/)
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/op_31.png)
+
+            * LD = load
+            * SP = stack pointer
+            * 3 = number of bytes this op takes stored
+            * 12 = number of clock cycles it takes to execute
+            * ---- = no flags are affected
+
+            Lets look at the manual.
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/ld_manual.png)
+
+            [http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf](http://marc.rawer.de/Gameboy/Docs/GBCPUman.pdf)
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/bios_hex.png)
+        </section>
+        <section data-markdown>
+            ## What do we do now?
+
+            * `31 FE FF`
+            * How do we store this?
+            * What code are we gonna write?
+        </section>
+        <section data-markdown>
+            ```typescript
+            interface State {
+                sp: number;
+                pc: number;
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ```typescript
+            // 31 FE FF
+            function run0x31(s: State) {
+                state.pc++;
+                const lower = rom[state.pc++];
+                const upper = rom[state.pc++];
+                state.sp = to16bit(upper, lower);
+            }
+
+            function to16bit(upper: number, low: number): number {
+                // Little-endian
+                return (upper << 8) + low;
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/op_c3.png)
+
+            * Op code: 0xC3
+            * JP = jump
+            * a16 = absolute 16 bit address
+            * 3 = number of bytes this op takes stored
+            * 16 = number of clock cycles it takes to execute
+        </section>
+        <section data-markdown>
+            ```typescript
+            function run0xC3(s: State) {
+                state.pc++;
+                const lower = rom[state.pc++];
+                const upper = rom[state.pc++];
+
+                const address = to16bit(upper, lower);
+                state.pc = address;
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ## pc and sp, thats it?
+            No.
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/registers_table_2.png)
+            [https://gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html)
+        </section>
+        <section data-markdown>
+            ```typescript
+            interface State {
+                a: number;
+                f: number;
+                b: number;
+                c: number;
+                d: number;
+                e: number;
+                h: number;
+                l: number;
+                sp: number;
+                pc: number;
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ```typescript
+            function readBc(state: State): number {
+                return to16bit(state.b, state.c);
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/bios_hex.png)
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/op_af.png)
+
+            ![alt text](/public/images/gb_docs_xor.png)
+
+            Register F is the flags!
+        </section>
+        <section data-markdown>
+            ![alt text](/public/images/flags_table.png)
+        </section>
+        <section data-markdown>
+            ```typescript
+            function flags(
+                state: State,
+                z: boolean | number | null,
+                n: boolean | number | null,
+                h: boolean | number | null,
+                c: boolean | number | null,
+            ): void {
+                // Update bits of f register
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ```typescript
+            function run0xAF(state: State) {
+                state.pc++;
+                state.a ^= state.a;
+                flags(state, state.a === 0, false, false, false);
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ## So far
+            * Some operations
+            * Registers
+            * Flags
+
+            How do we run it?
+        </section>
+        <section data-markdown>
+            ```typescript
+            const bios = ...;
+            const state: State = {
+                a: 0,
+                f: 0,
+                b: 0,
+                c: 0,
+                d: 0,
+                e: 0,
+                h: 0,
+                l: 0,
+                sp: 0,
+                pc: 0,
+            };
+            ```
+        </section>
+        <section data-markdown>
+            ```typescript
+            function runNextOp(state: State) {
+                const op = bios[state.pc];
+                switch (op) {
+                    case 0x31:
+                        run0x31(op);
+                        return;
+                    case 0xAF:
+                        run0xAF(op);
+                        return;
+                    case 0xC3:
+                        run0xC3(op);
+                        return;
+                    default:
+                        throw new Error(`Unknown op: ${op}`);
+                }
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ```typescript
+            const bios = ...;
+            const state = ...;
+
+            function main() {
+                for (let i = 0; i < 100; i++) {
+                    runNextOp(state);
+                }
+            }
+            ```
+        </section>
+        <section data-markdown>
+            ## Implement all CPU operations
+
+            No, not today...
+        </section>
+    </div>
+</div>
+
+<script src="dist/reveal.js"></script>
+<script src="plugin/notes/notes.js"></script>
+<script src="plugin/markdown/markdown.js"></script>
+<script src="plugin/highlight/highlight.js"></script>
+<script>
+    // More info about initialization & config:
+    // - https://revealjs.com/initialization/
+    // - https://revealjs.com/config/
+    Reveal.initialize({
+        hash: true,
+
+        // Learn about plugins: https://revealjs.com/plugins/
+        plugins: [RevealMarkdown, RevealHighlight, RevealNotes]
+    });
+</script>
+</body>
 </html>
