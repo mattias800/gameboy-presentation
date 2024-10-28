@@ -24,6 +24,10 @@
             ![alt text](/public/images/gameboy.png)
         </section>
         <section data-markdown>
+            ## What is an emulator?
+            * A software that simulates hardware
+        </section>
+        <section data-markdown>
             ## Why did I do this?
             * For fun
             * Small goals, small steps
@@ -104,24 +108,24 @@
         <section data-markdown>
             ```typescript
             interface State {
-                sp: number;
-                pc: number;
+            sp: number;
+            pc: number;
             }
             ```
         </section>
         <section data-markdown>
             ```typescript
-            // 31 FE FF
+            // First op: 31 FE FF
             function run0x31(s: State) {
-                state.pc++;
-                const lower = rom[state.pc++];
-                const upper = rom[state.pc++];
-                state.sp = to16bit(upper, lower);
+            state.pc++;
+            const lower = rom[state.pc++];
+            const upper = rom[state.pc++];
+            state.sp = to16bit(upper, lower);
             }
 
             function to16bit(upper: number, low: number): number {
-                // Little-endian
-                return (upper << 8) + low;
+            // Little-endian
+            return (upper << 8) + low;
             }
             ```
         </section>
@@ -137,12 +141,12 @@
         <section data-markdown>
             ```typescript
             function run0xC3(s: State) {
-                state.pc++;
-                const lower = rom[state.pc++];
-                const upper = rom[state.pc++];
+            state.pc++;
+            const lower = rom[state.pc++];
+            const upper = rom[state.pc++];
 
-                const address = to16bit(upper, lower);
-                state.pc = address;
+            const address = to16bit(upper, lower);
+            state.pc = address;
             }
             ```
         </section>
@@ -151,34 +155,41 @@
             No.
         </section>
         <section data-markdown>
+            ## CPU registers
             ![alt text](/public/images/registers_table_2.png)
             [https://gbdev.io/pandocs/CPU_Registers_and_Flags.html](https://gbdev.io/pandocs/CPU_Registers_and_Flags.html)
         </section>
         <section data-markdown>
             ```typescript
             interface State {
-                a: number;
-                f: number;
-                b: number;
-                c: number;
-                d: number;
-                e: number;
-                h: number;
-                l: number;
-                sp: number;
-                pc: number;
+            a: number;
+            f: number;
+            b: number;
+            c: number;
+            d: number;
+            e: number;
+            h: number;
+            l: number;
+            sp: number;
+            pc: number;
             }
             ```
         </section>
         <section data-markdown>
             ```typescript
             function readBc(state: State): number {
-                return to16bit(state.b, state.c);
+            return to16bit(state.b, state.c);
             }
             ```
         </section>
         <section data-markdown>
+            Next op: 0xAF
+
             ![alt text](/public/images/bios_hex.png)
+        </section>
+        <section data-markdown>
+            0xAF
+            ![alt text](/public/images/op_code_map.png)
         </section>
         <section data-markdown>
             ![alt text](/public/images/op_af.png)
@@ -188,27 +199,30 @@
             Register F is the flags!
         </section>
         <section data-markdown>
+            ## F register
+            8-bits
+
             ![alt text](/public/images/flags_table.png)
         </section>
         <section data-markdown>
             ```typescript
             function flags(
-                state: State,
-                z: boolean | number | null,
-                n: boolean | number | null,
-                h: boolean | number | null,
-                c: boolean | number | null,
+            state: State,
+            z: boolean | number | null,
+            n: boolean | number | null,
+            h: boolean | number | null,
+            c: boolean | number | null,
             ): void {
-                // Update bits of f register
+            // Update bits of f register
             }
             ```
         </section>
         <section data-markdown>
             ```typescript
             function run0xAF(state: State) {
-                state.pc++;
-                state.a ^= state.a;
-                flags(state, state.a === 0, false, false, false);
+            state.pc++;
+            state.a ^= state.a;
+            flags(state, state.a === 0, false, false, false);
             }
             ```
         </section>
@@ -224,36 +238,36 @@
             ```typescript
             const bios = ...;
             const state: State = {
-                a: 0,
-                f: 0,
-                b: 0,
-                c: 0,
-                d: 0,
-                e: 0,
-                h: 0,
-                l: 0,
-                sp: 0,
-                pc: 0,
+            a: 0,
+            f: 0,
+            b: 0,
+            c: 0,
+            d: 0,
+            e: 0,
+            h: 0,
+            l: 0,
+            sp: 0,
+            pc: 0,
             };
             ```
         </section>
         <section data-markdown>
             ```typescript
             function runNextOp(state: State) {
-                const op = bios[state.pc];
-                switch (op) {
-                    case 0x31:
-                        run0x31(op);
-                        return;
-                    case 0xAF:
-                        run0xAF(op);
-                        return;
-                    case 0xC3:
-                        run0xC3(op);
-                        return;
-                    default:
-                        throw new Error(`Unknown op: ${op}`);
-                }
+            const op = bios[state.pc];
+            switch (op) {
+            case 0x31:
+            run0x31(op);
+            return;
+            case 0xAF:
+            run0xAF(op);
+            return;
+            case 0xC3:
+            run0xC3(op);
+            return;
+            default:
+            throw new Error(`Unknown op: ${op}`);
+            }
             }
             ```
         </section>
@@ -263,16 +277,161 @@
             const state = ...;
 
             function main() {
-                for (let i = 0; i < 100; i++) {
-                    runNextOp(state);
-                }
+            // Temporary 'for', just to prevent infinite loop
+            for (let i = 0; i < 100; i++) {
+            runNextOp(state);
+            }
             }
             ```
         </section>
         <section data-markdown>
-            ## Implement all CPU operations
+            ## Lets continue with ops
 
-            No, not today...
+            ![alt text](/public/images/four_first_ops.png)
+        </section>
+        <section data-markdown>
+            0x21 LD HL, d16
+
+            ```typescript
+            function run0x21(state: State) {
+            state.pc++;
+            state.l = readD8(s);
+            state.h = readD8(s);
+            };
+            ```
+        </section>
+        <section data-markdown>
+            0x32 LD (HL-), A
+
+            ![alt text](/public/images/gb_docs_ld_hl_a.png)
+        </section>
+
+        <section data-markdown>
+            0x32 LD (HL-), A
+
+            ```typescript
+            function run0x21(state: State) {
+            s.pc++;
+            const hl = to16bit(s.h, s.l);
+            writeBus(s, hl, s.a);
+            const newHl = (hl - 1) & 0xffff;
+            s.h = upper8bit(newHl);
+            s.l = lower8bit(newHl);
+            };
+        </section>
+        <section data-markdown>
+            # Memory bus
+
+            ![alt text](/public/images/memory_map.png)
+        </section>
+        <section data-markdown>
+            # Add some logging
+
+            ```typescript
+            function logState(state: State) {
+            console.log(
+            "A=" + format8bitHex(state.a) + " " +
+            "F=" + format8bitHex(state.f) + " " +
+            "B=" + format8bitHex(state.b) + " " +
+            "C=" + format8bitHex(state.c) + " " +
+            "D=" + format8bitHex(state.d) + " " +
+            "E=" + format8bitHex(state.e) + " " +
+            "H=" + format8bitHex(state.h) + " " +
+            "L=" + format8bitHex(state.l) + " " +
+            "SP=" + format16bitHex(state.sp) + " " +
+            "PC=" + format16bitHex(state.pc));
+            }
+            ```
+        </section>
+        <section data-markdown>
+            # Add some logging
+
+            ```typescript
+            function main() {
+            // Temporary 'for', just to prevent infinite loop
+            for (let i = 0; i < 100; i++) {
+            logNextOp(state); // <- Not fun to show
+            runNextOp(state);
+            logState(state);
+            }
+            }
+            ```
+        </section>
+
+        <section data-markdown>
+            ![alt text](/public/images/four_first_ops_logging.png)
+        </section>
+
+        <section data-markdown>
+            # 0x9FFF
+
+            ![alt text](/public/images/memory_map.png)
+        </section>
+
+        <section data-markdown>
+            # But before that..
+
+            cb-instructions
+
+            ![alt text](/public/images/bios_hex.png)
+        </section>
+
+        <section data-markdown>
+            ![alt text](/public/images/op_code_map_cb.png)
+        </section>
+
+        <section data-markdown>
+            ## Back to memory map
+
+            * 0x9fff
+            * BG map data 2
+            * Connected to PPU
+            * Picture processing unit
+            * Can render tile maps and sprite (OBJ)
+        </section>
+
+        <section data-markdown>
+            ## Tile map
+            ![alt text](/public/images/tilemap.png)
+        </section>
+
+        <section data-markdown>
+            ## Scroll
+            ![alt text](/public/images/tilemap_scroll.png)
+        </section>
+
+        <section data-markdown>
+            ## Scroll
+            Memory address
+            * SCY: 0xff42
+            * SCX: 0xff43
+        </section>
+
+        <section data-markdown>
+            ## I/O registers
+            ![alt text](/public/images/io_registers.png)
+
+            [https://gbdev.io/pandocs/Memory_Map.html#io-ranges](https://gbdev.io/pandocs/Memory_Map.html#io-ranges)
+        </section>
+
+
+        <section data-markdown>
+            ## PPU logic
+
+            * for each pixel,
+            * given current scroll,
+            * find which tile to use,
+            * and what pixel of that tile to draw.
+        </section>
+
+        <section data-markdown>
+            ## Next up
+            * Interrupts
+            * Sync frames with vblank
+            * After that, Tetris!
+            * Now more ops are used, hard to find errors
+            * Test ROMS!
+            * Gameboy doctor
         </section>
     </div>
 </div>
