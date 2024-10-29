@@ -414,7 +414,6 @@
             [https://gbdev.io/pandocs/Memory_Map.html#io-ranges](https://gbdev.io/pandocs/Memory_Map.html#io-ranges)
         </section>
 
-
         <section data-markdown>
             ## PPU logic
 
@@ -425,13 +424,225 @@
         </section>
 
         <section data-markdown>
-            ## Next up
-            * Interrupts
-            * Sync frames with vblank
-            * After that, Tetris!
-            * Now more ops are used, hard to find errors
-            * Test ROMS!
-            * Gameboy doctor
+            ## A bit more complicated
+
+            But that is enough for the BIOS
+        </section>
+
+        <section data-markdown>
+            ```typescript
+            const bios = ...;
+            const state = ...;
+
+            function main() {
+                // Temporary 'for', just to prevent infinite loop
+                for (let i = 0; i < 100; i++) {
+                    runNextOp(state);
+                }
+            }
+            ```
+        </section>
+
+        <section data-markdown>
+            ```typescript
+            const bios = ...;
+            const state = ...;
+
+            function main() {
+                while (true) {
+                    runNextOp(state);
+                }
+            }
+            ```
+
+            * This would block the thread indefinitely
+            * When do we draw graphics?
+        </section>
+
+        <section data-markdown>
+            ## Interrupts
+
+            * The hardware can signal the CPU that something has happened
+
+            * Interrupt flags: `0xff0f`
+
+            ```typescript
+            export enum Interrupt {
+                VBLANK,
+                STAT,
+                TIMER,
+                SERIAL,
+                JOYPAD,
+            }
+            ```
+        </section>
+
+        <section data-markdown>
+            ## Interrupts
+
+            * Check if interrupt has triggered after every CPU op
+            * When interrupt is triggered, jump to interrupt address
+
+            ```typescript
+            export const interruptPcMemoryMap: Record<Interrupt, number> = {
+                [Interrupt.VBLANK]: 0x40,
+                [Interrupt.STAT]: 0x48,
+                [Interrupt.TIMER]: 0x50,
+                [Interrupt.SERIAL]: 0x58,
+                [Interrupt.JOYPAD]: 0x60,
+            };
+            ```
+        </section>
+
+        <section data-markdown>
+            ## Back to PPU
+
+            * PPU renders screen
+            * Each line from left to right
+            * Every line from top to bottom (like old CRT TV)
+            * V-blank is triggered when it reaches the bottom of the screen
+        </section>
+
+        <section data-markdown>
+            ```typescript
+            const frame = () => {
+                if (state.cpu.poweredOn) {
+                    requestAnimationFrame(() => frame());
+                }
+
+                stepUntilVblank(state);
+
+                drawScreen(state);
+            };
+
+            frame();
+            ```
+        </section>
+
+        <section data-markdown>
+            ```typescript
+            export const stepUntilVblank = (state: GameboyState) => {
+                let vblankInitiated = false;
+                while (!vblankInitiated) {
+                    vblankInitiated = step(state);
+
+                }
+            };
+
+            export const step() = (state: GameboyState): boolean => {
+                const prevVBlank = state.gpu.mode;
+                runNextOp(state);
+                checkAndExecuteInterrupts(state);
+                return prevVBlank !== GpuMode.VBLANK &&
+                        state.gpu.mode === GpuMode.VBLANK;
+            }
+            ```
+        </section>
+
+        <section data-markdown>
+            ### We need to emulate the PPU...
+
+            * That is for another day
+            * But the PPU code needs to be called somewhere
+        </section>
+
+        <section data-markdown>
+            ### Back to the ops
+
+            * We need to tick the system
+
+            ```typescript
+            // 0x01 LD BC,u16
+            0x01: (s: GameboyState) => {
+                s.cpu.pc++;
+                tick4(s);
+                s.cpu.c = readD8(s);
+                tick4(s);
+                s.cpu.b = readD8(s);
+                tick4(s);
+            },
+            ```
+        </section>
+
+        <section data-markdown>
+            ```typescript
+            export const tick4 = (state: GameboyState): void => {
+                tick(state);
+                tick(state);
+                tick(state);
+                tick(state);
+            };
+
+            export const tick = (state: GameboyState): void => {
+                state.cpu.clock++;
+                tickDma(state);
+                tickTimer(state);
+                // Serial here.
+                tickPpu(state);
+                tickApu(state);
+                tickAudioSampler(state.apu);
+            };
+            ```
+        </section>
+
+        <section data-markdown>
+            * That is a lot of stuff!
+            * How do you find errors in your implementation?
+
+            ```typescript
+            // 0xE0 LD (FF00+u8),A
+            0xe0: (s: GameboyState) => {
+                s.cpu.pc++;
+                tick4(s); // <- Order of execution here must be correct!
+
+                const offset = readD8(s);
+                tick4(s);
+                writeBus(s, 0xff00 + offset, s.cpu.a);
+                tick4(s);
+            },
+            ```
+        </section>
+
+        <section data-markdown>
+            ### Blargg test ROM:s!
+            * Runs ops in specific way to trigger CPU/hardware state
+            * Then verifies state
+
+            [https://github.com/retrio/gb-test-roms](https://github.com/retrio/gb-test-roms)
+        </section>
+
+        <section data-markdown>
+            ![alt text](/public/images/blargg.png)
+        </section>
+
+        <section data-markdown>
+            * But that only verifies correctness
+            * Provides few clues to what is wrong
+        </section>
+
+        <section data-markdown>
+            ## Gameboy doctor
+            * You log CPU state after each instruction
+            * Log must be specified format
+            * Gameboy doctor checks diff
+            * Reports exactly what is wrong
+
+            [https://robertheaton.com/gameboy-doctor/](https://robertheaton.com/gameboy-doctor/)
+        </section>
+
+        <section data-markdown>
+            ## Gameboy doctor
+
+            ![alt text](/public/images/gameboy_doctor.png)
+        </section>
+        <section data-markdown>
+            After that, you are on your own :D
+
+            That's it!
+
+            Thank you!
+
+            Demo!
         </section>
     </div>
 </div>
